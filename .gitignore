@@ -6,7 +6,6 @@
 
 *.class
 
-bin/
 target/
 test-output/
 
