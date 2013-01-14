@@ -9,7 +9,7 @@
     <parent>
         <groupId>io.brooklyn.example</groupId>
         <artifactId>brooklyn-examples-parent</artifactId>
-        <version>0.4.0-SNAPSHOT</version>   <!-- BROOKLYN_VERSION -->
+        <version>0.5.0-SNAPSHOT</version>   <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -18,7 +18,12 @@
             <groupId>io.brooklyn</groupId>
             <artifactId>brooklyn-all</artifactId>
             <version>${project.version}</version>
-            <classifier>with-dependencies</classifier>
+        </dependency>
+        <dependency>
+            <groupId>io.brooklyn</groupId>
+            <artifactId>brooklyn-logback-xml</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
@@ -56,6 +61,7 @@
                                     <outputDirectory>target/classes</outputDirectory>
                                     <destFileName>hello-world-sql-webapp.war</destFileName>
                                 </artifactItem>
+<!-- if you want the hadoop example:
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>brooklyn-example-hello-world-hadoop-webapp</artifactId>
@@ -65,6 +71,7 @@
                                     <outputDirectory>target/classes</outputDirectory>
                                     <destFileName>hello-world-hadoop-webapp.war</destFileName>
                                 </artifactItem>
+-->
                             </artifactItems>
                         </configuration>
                     </execution>
@@ -86,6 +93,16 @@
                     </filesets>
                 </configuration>
             </plugin>            
+            <plugin>
+                <!-- optional, with this block, `mvn assembly:assembly` will build a redistributable tgz -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/main/assembly/assembly.xml</descriptor>
+                    </descriptors>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
         

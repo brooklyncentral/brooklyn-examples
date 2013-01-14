@@ -47,7 +47,7 @@ class MovableElasticWebAppCluster extends AbstractEntity implements Startable, M
     
     @Override
     public void start(Collection<? extends Location> locations) {
-        if (!getOwnedChildren().isEmpty()) {
+        if (!getChildren().isEmpty()) {
             log.debug("Starting $this; it already has children, so start on children is being invoked")
             StartableMethods.start(this, locations);
         } else {
@@ -131,7 +131,7 @@ class MovableElasticWebAppCluster extends AbstractEntity implements Startable, M
         currentSecondaryIds.remove(idOfSecondaryToDestroy);
         setAttribute(SECONDARY_SVC_ENTITY_IDS, currentSecondaryIds);
         
-        Entity secondary = getManagementContext().getEntity(idOfSecondaryToDestroy);
+        Entity secondary = getManagementContext().getEntityManager().getEntity(idOfSecondaryToDestroy);
         Entities.destroy(managementContext, secondary);
     }
 
