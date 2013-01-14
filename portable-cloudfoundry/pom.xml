@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.brooklyn.example</groupId>
         <artifactId>brooklyn-examples-parent</artifactId>
-        <version>0.4.0-M2</version>   <!-- BROOKLYN_VERSION -->
+        <version>0.4.0-SNAPSHOT</version>   <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -46,26 +46,6 @@
                                     <destFileName>hello-world-webapp.war</destFileName>
                                 </artifactItem>
                             </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>build-distribution</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>src/main/config/example.xml</descriptor>
-                            </descriptors>
-                            <finalName>${project.artifactId}</finalName>
-                            <outputDirectory>${project.basedir}</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>

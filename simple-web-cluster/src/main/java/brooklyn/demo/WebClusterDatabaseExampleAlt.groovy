@@ -20,7 +20,7 @@ import brooklyn.event.basic.DependentConfiguration
 import brooklyn.launcher.BrooklynLauncher
 import brooklyn.location.Location
 import brooklyn.location.basic.LocationRegistry
-import brooklyn.policy.ResizerPolicy
+import brooklyn.policy.autoscaling.AutoScalerPolicy
 import brooklyn.util.CommandLineUtil
 
 /**
@@ -73,7 +73,7 @@ INSERT INTO MESSAGES values (default, 'Isaac Asimov', 'I grew up in Brooklyn' );
 
     protected JavaWebAppService newWebServer(Map flags, Entity cluster) {
         JBoss7Server jb7 = new JBoss7Server(flags).configure(httpPort: "8000+");
-        jb7.setConfig(JBoss7Server.JAVA_OPTIONS, ["brooklyn.example.db.url": 
+        jb7.setConfig(JBoss7Server.JAVA_SYSPROPS, ["brooklyn.example.db.url": 
                 //"jdbc:mysql://localhost/visitors?user=brooklyn&password=br00k11n"
                 DependentConfiguration.valueWhenAttributeReady(mysql, MySqlNode.MYSQL_URL, 
                     { "jdbc:"+it+"visitors?user=${DB_USERNAME}\\&password=${DB_PASSWORD}" }) ]);
@@ -85,9 +85,11 @@ INSERT INTO MESSAGES values (default, 'Isaac Asimov', 'I grew up in Brooklyn' );
         controller: new NginxController(port: 8080),
         factory: this.&newWebServer )
     
-    ResizerPolicy policy = new ResizerPolicy(DynamicWebAppCluster.AVERAGE_REQUESTS_PER_SECOND).
-        setSizeRange(1, 5).
-        setMetricRange(10, 100);
+    AutoScalerPolicy policy = AutoScalerPolicy.builder()
+            .metric(DynamicWebAppCluster.AVERAGE_REQUESTS_PER_SECOND)
+            .sizeRange(1, 5)
+            .metricRange(10, 100)
+            .build();
     
 
     public static void main(String[] argv) {

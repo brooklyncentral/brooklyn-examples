@@ -10,8 +10,8 @@ import brooklyn.entity.basic.AbstractApplication
 import brooklyn.entity.basic.Attributes
 import brooklyn.entity.basic.Entities
 import brooklyn.entity.dns.geoscaling.GeoscalingDnsService
-import brooklyn.entity.group.AbstractController
 import brooklyn.entity.group.DynamicFabric
+import brooklyn.entity.proxy.AbstractController;
 import brooklyn.entity.webapp.ElasticJavaWebAppService
 import brooklyn.event.basic.DependentConfiguration
 import brooklyn.extras.cloudfoundry.CloudFoundryJavaWebAppCluster
@@ -60,16 +60,17 @@ class GlobalWebFabricExample extends AbstractApplication {
 
         
     public static void main(String[] argv) {
-        ArrayList args = new ArrayList(Arrays.asList(argv));
-        int port = CommandLineUtil.getCommandLineOptionInt(args, "--port", 8081);
-        List<Location> locations = new LocationRegistry().getLocationsById(args ?: DEFAULT_LOCATIONS)
-
         GlobalWebFabricExample app = new GlobalWebFabricExample(name: 'Brooklyn Global Web Fabric Example');
-            
-        BrooklynLauncher.manage(app, port)
-        app.start(locations)
-        Entities.dumpInfo(app)
+        
+        ArrayList args = new ArrayList(Arrays.asList(argv));
+        BrooklynLauncher.newLauncher().
+                webconsolePort( CommandLineUtil.getCommandLineOption(args, "--port", "8081+") ).
+                managing(app).
+                launch();
+
+        List<Location> locations = new LocationRegistry().getLocationsById(args ?: DEFAULT_LOCATIONS);
+        app.start(locations);
+        Entities.dumpInfo(app);
     }
-    
         
 }
