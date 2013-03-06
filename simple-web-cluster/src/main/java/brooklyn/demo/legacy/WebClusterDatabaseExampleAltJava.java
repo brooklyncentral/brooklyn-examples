@@ -1,4 +1,4 @@
-package brooklyn.demo;
+package brooklyn.demo.legacy;
 
 import static brooklyn.event.basic.DependentConfiguration.valueWhenAttributeReady;
 
@@ -16,8 +16,11 @@ import org.slf4j.LoggerFactory;
 import brooklyn.config.BrooklynProperties;
 import brooklyn.entity.basic.AbstractApplication;
 import brooklyn.entity.basic.Entities;
+import brooklyn.entity.basic.EntityLocal;
 import brooklyn.entity.database.mysql.MySqlNode;
+import brooklyn.entity.database.mysql.MySqlNodeImpl;
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster;
+import brooklyn.entity.webapp.ControlledDynamicWebAppClusterImpl;
 import brooklyn.entity.webapp.DynamicWebAppCluster;
 import brooklyn.entity.webapp.WebAppService;
 import brooklyn.entity.webapp.jboss.JBoss7Server;
@@ -65,11 +68,11 @@ public class WebClusterDatabaseExampleAltJava extends AbstractApplication {
         super(props);
     }
     
-    ControlledDynamicWebAppCluster web = new ControlledDynamicWebAppCluster(this);
-    MySqlNode mysql = new MySqlNode(this);
+    ControlledDynamicWebAppCluster web = new ControlledDynamicWebAppClusterImpl(this);
+    MySqlNodeImpl mysql = new MySqlNodeImpl(this);
 
-    { 
-        web.setConfig(ControlledDynamicWebAppCluster.ROOT_WAR, WAR_PATH); 
+    {
+        ((EntityLocal)web).setConfig(ControlledDynamicWebAppCluster.ROOT_WAR, WAR_PATH); 
         mysql.setConfig(MySqlNode.CREATION_SCRIPT_URL, DB_SETUP_SQL_URL);
         web.getFactory().setConfig(WebAppService.HTTP_PORT, "8080+"); 
         Map jvmSysProps = new LinkedHashMap();
