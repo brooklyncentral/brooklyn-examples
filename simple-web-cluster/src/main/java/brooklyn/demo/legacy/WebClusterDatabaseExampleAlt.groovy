@@ -1,7 +1,4 @@
-package brooklyn.demo
-
-import java.util.List
-import java.util.Map
+package brooklyn.demo.legacy
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -11,11 +8,14 @@ import brooklyn.entity.Entity
 import brooklyn.entity.basic.AbstractApplication
 import brooklyn.entity.basic.Entities
 import brooklyn.entity.database.mysql.MySqlNode
-import brooklyn.entity.proxy.nginx.NginxController
+import brooklyn.entity.database.mysql.MySqlNodeImpl
+import brooklyn.entity.proxy.nginx.NginxControllerImpl
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster
+import brooklyn.entity.webapp.ControlledDynamicWebAppClusterImpl
 import brooklyn.entity.webapp.DynamicWebAppCluster
 import brooklyn.entity.webapp.JavaWebAppService
 import brooklyn.entity.webapp.jboss.JBoss7Server
+import brooklyn.entity.webapp.jboss.JBoss7ServerImpl
 import brooklyn.event.basic.DependentConfiguration
 import brooklyn.launcher.BrooklynLauncher
 import brooklyn.location.Location
@@ -69,10 +69,10 @@ INSERT INTO MESSAGES values (default, 'Isaac Asimov', 'I grew up in Brooklyn' );
         setConfig(JavaWebAppService.ROOT_WAR, WAR_PATH)
     }
     
-    MySqlNode mysql = new MySqlNode(this, creationScriptContents: DB_SETUP_SQL);
+    MySqlNode mysql = new MySqlNodeImpl(this, creationScriptContents: DB_SETUP_SQL);
 
     protected JavaWebAppService newWebServer(Map flags, Entity cluster) {
-        JBoss7Server jb7 = new JBoss7Server(flags).configure(httpPort: "8000+");
+        JBoss7Server jb7 = new JBoss7ServerImpl(flags).configure(httpPort: "8000+");
         jb7.setConfig(JBoss7Server.JAVA_SYSPROPS, ["brooklyn.example.db.url": 
                 //"jdbc:mysql://localhost/visitors?user=brooklyn&password=br00k11n"
                 DependentConfiguration.valueWhenAttributeReady(mysql, MySqlNode.MYSQL_URL, 
@@ -81,8 +81,8 @@ INSERT INTO MESSAGES values (default, 'Isaac Asimov', 'I grew up in Brooklyn' );
         return jb7;
     }
 
-    ControlledDynamicWebAppCluster web = new ControlledDynamicWebAppCluster(this,
-        controller: new NginxController(port: 8080),
+    ControlledDynamicWebAppCluster web = new ControlledDynamicWebAppClusterImpl(this,
+        controller: new NginxControllerImpl(port: 8080),
         factory: this.&newWebServer )
     
     AutoScalerPolicy policy = AutoScalerPolicy.builder()
