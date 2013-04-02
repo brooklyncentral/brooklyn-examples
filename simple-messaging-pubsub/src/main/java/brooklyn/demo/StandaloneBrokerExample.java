@@ -2,19 +2,19 @@ package brooklyn.demo;
 
 import java.util.List;
 
-import brooklyn.entity.basic.ApplicationBuilder;
+import brooklyn.entity.basic.AbstractApplication;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.messaging.amqp.AmqpServer;
 import brooklyn.entity.messaging.qpid.QpidBroker;
-import brooklyn.entity.proxying.BasicEntitySpec;
-import brooklyn.launcher.BrooklynLauncherCli;
+import brooklyn.entity.proxying.EntitySpecs;
+import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.util.CommandLineUtil;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 /** Qpid Broker Application */
-public class StandaloneBrokerExample extends ApplicationBuilder {
+public class StandaloneBrokerExample extends AbstractApplication {
 
     public static final String CUSTOM_CONFIG_PATH = "classpath://custom-config.xml";
     public static final String PASSWD_PATH = "classpath://passwd";
@@ -23,9 +23,10 @@ public class StandaloneBrokerExample extends ApplicationBuilder {
 
     public static final String DEFAULT_LOCATION = "localhost";
     
-    protected void doBuild() {
+    @Override
+    public void init() {
         // Configure the Qpid broker entity
-    	QpidBroker broker = createChild(BasicEntitySpec.newInstance(QpidBroker.class)
+    	QpidBroker broker = addChild(EntitySpecs.spec(QpidBroker.class)
     	        .configure("amqpPort", 5672)
     	        .configure("amqpVersion", AmqpServer.AMQP_0_10)
     	        .configure("runtimeFiles", ImmutableMap.builder()
@@ -42,8 +43,8 @@ public class StandaloneBrokerExample extends ApplicationBuilder {
         String port =  CommandLineUtil.getCommandLineOption(args, "--port", "8081+");
         String location = CommandLineUtil.getCommandLineOption(args, "--location", DEFAULT_LOCATION);
 
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
-                .application(new StandaloneBrokerExample().appDisplayName("Qpid app"))
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                .application(EntitySpecs.appSpec(StandaloneBrokerExample.class).displayName("Qpid app"))
                 .webconsolePort(port)
                 .location(location)
                 .start();

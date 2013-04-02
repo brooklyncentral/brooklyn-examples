@@ -31,7 +31,7 @@ import brooklyn.entity.basic.StartableApplication;
 import brooklyn.entity.dns.geoscaling.GeoscalingDnsService;
 import brooklyn.entity.group.DynamicFabric;
 import brooklyn.entity.proxy.AbstractController;
-import brooklyn.entity.proxying.BasicEntitySpec;
+import brooklyn.entity.proxying.EntitySpecs;
 import brooklyn.entity.trait.Startable;
 import brooklyn.entity.webapp.ElasticJavaWebAppService;
 import brooklyn.entity.webapp.jboss.JBoss7Server;
@@ -39,9 +39,10 @@ import brooklyn.event.SensorEvent;
 import brooklyn.event.SensorEventListener;
 import brooklyn.event.basic.DependentConfiguration;
 import brooklyn.event.feed.http.HttpPollValue;
+import brooklyn.event.feed.http.HttpPolls;
 import brooklyn.extras.cloudfoundry.CloudFoundryJavaWebAppCluster;
 import brooklyn.extras.whirr.hadoop.WhirrHadoopCluster;
-import brooklyn.launcher.BrooklynLauncherCli;
+import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.Location;
 import brooklyn.location.basic.PortRanges;
 import brooklyn.location.basic.SshMachineLocation;
@@ -92,11 +93,10 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
     }
     
     @Override
-    public void postConstruct() {
+    public void init() {
         StringConfigMap config = getManagementContext().getConfig();
         
-        hadoopCluster = getEntityManager().createEntity(BasicEntitySpec.newInstance(WhirrHadoopCluster.class)
-                .parent(this)
+        hadoopCluster = addChild(EntitySpecs.spec(WhirrHadoopCluster.class)
                 .configure("size", 2)
                 .configure("memory", 2048)
                 .configure("name", "Whirr Hadoop Cluster"));
@@ -105,16 +105,14 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
         // specify hadoop version (1.0.2 has a nice, smaller hadoop client jar)
         hadoopCluster.addRecipeLine("whirr.hadoop.version=1.0.2");
     
-        GeoscalingDnsService geoDns = getEntityManager().createEntity(BasicEntitySpec.newInstance(GeoscalingDnsService.class)
-                .parent(this)
+        GeoscalingDnsService geoDns = addChild(EntitySpecs.spec(GeoscalingDnsService.class)
                 .displayName("GeoScaling DNS")
                 .configure("username", checkNotNull(config.getFirst("brooklyn.geoscaling.username"), "username"))
                 .configure("password", checkNotNull(config.getFirst("brooklyn.geoscaling.password"), "password"))
                 .configure("primaryDomainName", checkNotNull(config.getFirst("brooklyn.geoscaling.primaryDomain"), "primaryDomain"))
                 .configure("smartSubdomainName", "brooklyn"));
         
-        webFabric = getEntityManager().createEntity(BasicEntitySpec.newInstance(DynamicFabric.class)
-                .parent(this)
+        webFabric = addChild(EntitySpecs.spec(DynamicFabric.class)
                 .displayName("Web Fabric")
                 .configure("factory", new ElasticJavaWebAppService.Factory())
                 //specify the WAR file to use
@@ -131,8 +129,7 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
 //                        .metricRange(10, 100)
 //                        .build()));
         
-        webVms = getEntityManager().createEntity(BasicEntitySpec.newInstance(DynamicGroup.class)
-                .parent(this)
+        webVms = addChild(EntitySpecs.spec(DynamicGroup.class)
                 .displayName("Web VMs")
                 .configure(DynamicGroup.ENTITY_FILTER, Predicates.instanceOf(JBoss7Server.class)));
         
@@ -244,33 +241,22 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
                 URI updateConfigUri = new URI(e.getAttribute(JBoss7Server.ROOT_URL)+
                         "configure.jsp?key=brooklyn.example.hadoop.site.xml.url&value=file:///tmp/hadoop-site.xml");
                 
-                HttpPollValue result = executeGet(updateConfigUri);
+                HttpPollValue result = HttpPolls.executeSimpleGet(updateConfigUri);
                 if (log.isDebugEnabled()) log.debug("http config update for {} got: {}, {}", new Object[] {e, result.getResponseCode(), new String(result.getContent())});
             } catch (Exception err) {
                 log.warn("unable to configure "+e+" for hadoop", err);
                 configuredIds.remove(e.getId());
             }
         }
-        
-        private HttpPollValue executeGet(URI uri) throws ClientProtocolException, IOException {
-            DefaultHttpClient httpClient = new DefaultHttpClient();
-            HttpGet httpGet = new HttpGet(uri);
-            HttpResponse httpResponse = httpClient.execute(httpGet);
-            try {
-                return new HttpPollValue(httpResponse);
-            } finally {
-                EntityUtils.consume(httpResponse.getEntity());
-            }
-        }
     }
-        
+    
     public static void main(String[] argv) {
         List<String> args = Lists.newArrayList(argv);
         String port =  CommandLineUtil.getCommandLineOption(args, "--port", "8081+");
         String location = CommandLineUtil.getCommandLineOption(args, "--location", Joiner.on(",").join(DEFAULT_LOCATIONS));
 
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
-                .application(BasicEntitySpec.newInstance(StartableApplication.class)
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                .application(EntitySpecs.appSpec(StartableApplication.class)
                         .displayName("Brooklyn Global Web Fabric with Hadoop Example")
                         .impl(WebFabricWithHadoopExample.class))
                 .webconsolePort(port)
