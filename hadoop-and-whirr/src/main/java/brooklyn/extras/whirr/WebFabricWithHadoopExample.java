@@ -1,25 +1,5 @@
 package brooklyn.extras.whirr;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.net.InetAddress;
-import java.net.URI;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import org.apache.whirr.service.hadoop.HadoopCluster;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import brooklyn.config.StringConfigMap;
 import brooklyn.entity.Entity;
 import brooklyn.entity.Group;
@@ -41,7 +21,7 @@ import brooklyn.event.basic.DependentConfiguration;
 import brooklyn.event.feed.http.HttpPollValue;
 import brooklyn.extras.cloudfoundry.CloudFoundryJavaWebAppCluster;
 import brooklyn.extras.whirr.hadoop.WhirrHadoopCluster;
-import brooklyn.launcher.BrooklynLauncherCli;
+import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.Location;
 import brooklyn.location.basic.PortRanges;
 import brooklyn.location.basic.SshMachineLocation;
@@ -49,7 +29,6 @@ import brooklyn.management.Task;
 import brooklyn.policy.basic.AbstractPolicy;
 import brooklyn.util.CommandLineUtil;
 import brooklyn.util.task.ParallelTask;
-
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
@@ -58,6 +37,25 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
+import org.apache.whirr.service.hadoop.HadoopCluster;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
+import java.net.InetAddress;
+import java.net.URI;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Starts hadoop in the first location supplied, and the hadoop-friendly webapp in all other locations.
@@ -91,7 +89,6 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
     public WebFabricWithHadoopExample() {
     }
     
-    @Override
     public void postConstruct() {
         StringConfigMap config = getManagementContext().getConfig();
         
@@ -269,7 +266,7 @@ public class WebFabricWithHadoopExample extends AbstractApplication implements S
         String port =  CommandLineUtil.getCommandLineOption(args, "--port", "8081+");
         String location = CommandLineUtil.getCommandLineOption(args, "--location", Joiner.on(",").join(DEFAULT_LOCATIONS));
 
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
                 .application(BasicEntitySpec.newInstance(StartableApplication.class)
                         .displayName("Brooklyn Global Web Fabric with Hadoop Example")
                         .impl(WebFabricWithHadoopExample.class))
