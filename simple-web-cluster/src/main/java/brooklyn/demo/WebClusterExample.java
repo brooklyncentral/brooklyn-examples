@@ -6,14 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import brooklyn.config.BrooklynProperties;
-import brooklyn.entity.basic.ApplicationBuilder;
+import brooklyn.entity.basic.AbstractApplication;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.proxy.nginx.NginxController;
-import brooklyn.entity.proxying.BasicEntitySpec;
+import brooklyn.entity.proxying.EntitySpecs;
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster;
 import brooklyn.entity.webapp.DynamicWebAppCluster;
 import brooklyn.entity.webapp.jboss.JBoss7Server;
-import brooklyn.launcher.BrooklynLauncherCli;
+import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.policy.autoscaling.AutoScalerPolicy;
 import brooklyn.util.CommandLineUtil;
 
@@ -28,7 +28,7 @@ import com.google.common.collect.Lists;
  * -Xmx512m -Xms128m -XX:MaxPermSize=256m
  * and brooklyn-all jar, and this jar or classes dir, on classpath. 
  **/
-public class WebClusterExample extends ApplicationBuilder {
+public class WebClusterExample extends AbstractApplication {
     public static final Logger LOG = LoggerFactory.getLogger(WebClusterExample.class);
     
     static BrooklynProperties config = BrooklynProperties.Factory.newDefault();
@@ -40,16 +40,17 @@ public class WebClusterExample extends ApplicationBuilder {
     private NginxController nginxController;
     private ControlledDynamicWebAppCluster web;
     
-    protected void doBuild() {
-        nginxController = createChild(BasicEntitySpec.newInstance(NginxController.class)
+    @Override
+    public void init() {
+        nginxController = addChild(EntitySpecs.spec(NginxController.class)
                 //.configure("domain", "webclusterexample.brooklyn.local")
                 .configure("port", "8000+"));
           
-        web = createChild(ControlledDynamicWebAppCluster.Spec.newInstance()
+        web = addChild(ControlledDynamicWebAppCluster.Spec.newInstance()
                 .displayName("WebApp cluster")
                 .controller(nginxController)
                 .initialSize(1)
-                .memberSpec(BasicEntitySpec.newInstance(JBoss7Server.class)
+                .memberSpec(EntitySpecs.spec(JBoss7Server.class)
                         .configure("httpPort", "8080+")
                         .configure("war", WAR_PATH)));
         
@@ -66,8 +67,8 @@ public class WebClusterExample extends ApplicationBuilder {
         String location = CommandLineUtil.getCommandLineOption(args, "--location", DEFAULT_LOCATION);
 
         // TODO Want to parse, to handle multiple locations
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
-                .application(new WebClusterExample().appDisplayName("Brooklyn WebApp Cluster example"))
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                .application(EntitySpecs.appSpec(WebClusterExample.class).displayName("Brooklyn WebApp Cluster example"))
                 .webconsolePort(port)
                 .location(location)
                 .start();

@@ -5,22 +5,23 @@ import static brooklyn.event.basic.DependentConfiguration.formatString;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import brooklyn.catalog.CatalogConfig;
 import brooklyn.config.ConfigKey;
+import brooklyn.enricher.HttpLatencyDetector;
 import brooklyn.enricher.basic.SensorPropagatingEnricher;
 import brooklyn.enricher.basic.SensorTransformingEnricher;
 import brooklyn.entity.basic.AbstractApplication;
-import brooklyn.entity.basic.ApplicationBuilder;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.basic.StartableApplication;
 import brooklyn.entity.database.mysql.MySqlNode;
 import brooklyn.entity.group.DynamicCluster;
 import brooklyn.entity.java.JavaEntityMethods;
-import brooklyn.entity.proxying.BasicEntitySpec;
+import brooklyn.entity.proxying.EntitySpecs;
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster;
 import brooklyn.entity.webapp.DynamicWebAppCluster;
 import brooklyn.entity.webapp.JavaWebAppService;
@@ -29,7 +30,7 @@ import brooklyn.entity.webapp.WebAppServiceConstants;
 import brooklyn.event.AttributeSensor;
 import brooklyn.event.basic.BasicAttributeSensor;
 import brooklyn.event.basic.BasicConfigKey;
-import brooklyn.launcher.BrooklynLauncherCli;
+import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.basic.PortRanges;
 import brooklyn.policy.autoscaling.AutoScalerPolicy;
 import brooklyn.util.CommandLineUtil;
@@ -40,10 +41,8 @@ import com.google.common.collect.Lists;
 /**
  * Launches a 3-tier app with nginx, clustered jboss, and mysql.
  * <p>
- * Demonstrates how to define a new Application Entity class (reusable and extensible),
- * as opposed to just using the builder as in {@link WebClusterDatabaseExample}.
- * With an app, when we define public static sensors and runtime config _on the app class_ 
- * (not the builder) they can be discovered at runtime.
+ * Includes some advanced features such as KPI / derived sensors,
+ * and annotations for use in a catalog.
  * <p>
  * This variant also increases minimum size to 2.  
  * Note the policy min size must have the same value,
@@ -57,7 +56,7 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
 
     public static final String DEFAULT_WAR_PATH = "classpath://hello-world-sql-webapp.war";
     
-    @CatalogConfig(label="WAR (URL)")
+    @CatalogConfig(label="WAR (URL)", priority=2)
     public static final ConfigKey<String> WAR_PATH = new BasicConfigKey<String>(String.class,
         "app.war", "URL to the application archive which should be deployed", 
         DEFAULT_WAR_PATH);
@@ -71,7 +70,7 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     
     public static final String DEFAULT_DB_SETUP_SQL_URL = "classpath://visitors-creation-script.sql";
     
-    @CatalogConfig(label="DB Setup SQL (URL)")
+    @CatalogConfig(label="DB Setup SQL (URL)", priority=1)
     public static final ConfigKey<String> DB_SETUP_SQL_URL = new BasicConfigKey<String>(String.class,
         "app.db_sql", "URL to the SQL script to set up the database", 
         DEFAULT_DB_SETUP_SQL_URL);
@@ -87,25 +86,26 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     public static final AttributeSensor<String> ROOT_URL = WebAppServiceConstants.ROOT_URL;
 
     @Override
-    public void postConstruct() {
-        super.postConstruct();
+    public void init() {
+        MySqlNode mysql = addChild(
+                EntitySpecs.spec(MySqlNode.class)
+                        .configure(MySqlNode.CREATION_SCRIPT_URL, getConfig(DB_SETUP_SQL_URL)));
 
-        MySqlNode mysql = (MySqlNode) addChild(
-                getEntityManager().createEntity(
-                        BasicEntitySpec.newInstance(MySqlNode.class)
-                        .configure(MySqlNode.CREATION_SCRIPT_URL, getConfig(DB_SETUP_SQL_URL))) );
-
-        ControlledDynamicWebAppCluster web = (ControlledDynamicWebAppCluster) addChild(
-                getEntityManager().createEntity(
-                        BasicEntitySpec.newInstance(ControlledDynamicWebAppCluster.class)
+        ControlledDynamicWebAppCluster web = addChild(
+                EntitySpecs.spec(ControlledDynamicWebAppCluster.class)
                         .configure(WebAppService.HTTP_PORT, PortRanges.fromString("8080+"))
                         .configure(JavaWebAppService.ROOT_WAR, getConfig(WAR_PATH))
                         .configure(JavaEntityMethods.javaSysProp("brooklyn.example.db.url"), 
                                 formatString("jdbc:%s%s?user=%s\\&password=%s", 
                                         attributeWhenReady(mysql, MySqlNode.MYSQL_URL), DB_TABLE, DB_USERNAME, DB_PASSWORD))
                         .configure(DynamicCluster.INITIAL_SIZE, 2)
-                        .configure(WebAppService.ENABLED_PROTOCOLS, Arrays.asList(getConfig(USE_HTTPS) ? "https" : "http")) ));
+                        .configure(WebAppService.ENABLED_PROTOCOLS, Arrays.asList(getConfig(USE_HTTPS) ? "https" : "http")) );
 
+        web.addEnricher(HttpLatencyDetector.builder().
+                url(ROOT_URL).
+                rollup(10, TimeUnit.SECONDS).
+                build());
+        
         web.getCluster().addPolicy(AutoScalerPolicy.builder().
                 metric(DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW_PER_NODE).
                 metricRange(10, 100).
@@ -114,7 +114,8 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
 
         addEnricher(SensorPropagatingEnricher.newInstanceListeningTo(web,  
                 WebAppServiceConstants.ROOT_URL,
-                DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW));
+                DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW,
+                HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW));
         addEnricher(new SensorTransformingEnricher<Integer,Integer>(web, 
                 DynamicWebAppCluster.GROUP_SIZE, APPSERVERS_COUNT, Functions.<Integer>identity()));
     }
@@ -124,8 +125,8 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
         String port =  CommandLineUtil.getCommandLineOption(args, "--port", "8081+");
         String location = CommandLineUtil.getCommandLineOption(args, "--location", DEFAULT_LOCATION);
 
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
-                 .application(ApplicationBuilder.newAppSpec(WebClusterDatabaseExampleApp.class)
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                 .application(EntitySpecs.appSpec(WebClusterDatabaseExampleApp.class)
                          .displayName("Brooklyn WebApp Cluster with Database example"))
                  .webconsolePort(port)
                  .location(location)
