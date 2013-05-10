@@ -7,13 +7,13 @@ import static brooklyn.event.basic.DependentConfiguration.formatString
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import brooklyn.entity.basic.ApplicationBuilder
+import brooklyn.entity.basic.AbstractApplication
 import brooklyn.entity.basic.Entities
-import brooklyn.entity.basic.StartableApplication
 import brooklyn.entity.database.mysql.MySqlNode
+import brooklyn.entity.proxying.EntitySpecs
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster
 import brooklyn.entity.webapp.DynamicWebAppCluster
-import brooklyn.launcher.BrooklynLauncherCli
+import brooklyn.launcher.BrooklynLauncher
 import brooklyn.policy.autoscaling.AutoScalerPolicy
 import brooklyn.util.CommandLineUtil
 
@@ -24,7 +24,7 @@ import com.google.common.collect.Lists
  * <p>
  * This variant of {@link WebClusterDatabaseExample} demonstrates <i>Groovy</i> language conveniences.
  **/
-public class WebClusterDatabaseExampleGroovy extends ApplicationBuilder {
+public class WebClusterDatabaseExampleGroovy extends AbstractApplication {
     
     public static final Logger LOG = LoggerFactory.getLogger(WebClusterDatabaseExampleGroovy.class);
     
@@ -38,11 +38,12 @@ public class WebClusterDatabaseExampleGroovy extends ApplicationBuilder {
     public static final String DB_USERNAME = "brooklyn";
     public static final String DB_PASSWORD = "br00k11n";
     
-    protected void doBuild() {
-        MySqlNode mysql = createChild(MySqlNode,
+    @Override
+    public void init() {
+        MySqlNode mysql = addChild(MySqlNode,
                 creationScriptUrl: DB_SETUP_SQL_URL);
         
-        ControlledDynamicWebAppCluster web = createChild(ControlledDynamicWebAppCluster,
+        ControlledDynamicWebAppCluster web = addChild(ControlledDynamicWebAppCluster,
                 war: WAR_PATH,
                 httpPort: "8080+",
                 (javaSysProp("brooklyn.example.db.url")): 
@@ -62,8 +63,8 @@ public class WebClusterDatabaseExampleGroovy extends ApplicationBuilder {
         String port =  CommandLineUtil.getCommandLineOption(args, "--port", "8081+");
         String location = CommandLineUtil.getCommandLineOption(args, "--location", DEFAULT_LOCATION);
 
-        BrooklynLauncherCli launcher = BrooklynLauncherCli.newInstance()
-                .application(new WebClusterDatabaseExampleGroovy().appDisplayName("Brooklyn WebApp Cluster with Database example"))
+        BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                .application(EntitySpecs.appSpec(WebClusterDatabaseExampleGroovy.class).displayName("Brooklyn WebApp Cluster with Database example"))
                 .webconsolePort(port)
                 .location(location)
                 .start();
