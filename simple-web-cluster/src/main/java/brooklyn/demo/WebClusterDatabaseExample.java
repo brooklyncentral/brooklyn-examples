@@ -5,10 +5,12 @@ import static brooklyn.event.basic.DependentConfiguration.attributeWhenReady;
 import static brooklyn.event.basic.DependentConfiguration.formatString;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brooklyn.enricher.HttpLatencyDetector;
 import brooklyn.enricher.basic.SensorPropagatingEnricher;
 import brooklyn.enricher.basic.SensorTransformingEnricher;
 import brooklyn.entity.basic.AbstractApplication;
@@ -20,7 +22,8 @@ import brooklyn.entity.webapp.DynamicWebAppCluster;
 import brooklyn.entity.webapp.JavaWebAppService;
 import brooklyn.entity.webapp.WebAppService;
 import brooklyn.entity.webapp.WebAppServiceConstants;
-import brooklyn.event.basic.BasicAttributeSensor;
+import brooklyn.event.AttributeSensor;
+import brooklyn.event.basic.Sensors;
 import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.basic.PortRanges;
 import brooklyn.policy.autoscaling.AutoScalerPolicy;
@@ -44,7 +47,7 @@ public class WebClusterDatabaseExample extends AbstractApplication {
     public static final String DB_USERNAME = "brooklyn";
     public static final String DB_PASSWORD = "br00k11n";
     
-    public static final BasicAttributeSensor<Integer> APPSERVERS_COUNT = new BasicAttributeSensor<Integer>(Integer.class, 
+    public static final AttributeSensor<Integer> APPSERVERS_COUNT = Sensors.newIntegerSensor( 
             "appservers.count", "Number of app servers deployed");
 
     @Override
@@ -57,9 +60,14 @@ public class WebClusterDatabaseExample extends AbstractApplication {
                 .configure(JavaWebAppService.ROOT_WAR, WAR_PATH)
                 .configure(javaSysProp("brooklyn.example.db.url"), 
                         formatString("jdbc:%s%s?user=%s\\&password=%s", 
-                                attributeWhenReady(mysql, MySqlNode.MYSQL_URL), 
+                                attributeWhenReady(mysql, MySqlNode.DB_URL), 
                                 DB_TABLE, DB_USERNAME, DB_PASSWORD)) );
-        
+
+        web.addEnricher(HttpLatencyDetector.builder().
+                url(ControlledDynamicWebAppCluster.ROOT_URL).
+                rollup(10, TimeUnit.SECONDS).
+                build());
+
         // simple scaling policy
         web.getCluster().addPolicy(AutoScalerPolicy.builder().
                 metric(DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW_PER_NODE).
@@ -70,9 +78,10 @@ public class WebClusterDatabaseExample extends AbstractApplication {
         // expose some KPI's
         addEnricher(SensorPropagatingEnricher.newInstanceListeningTo(web,  
                 WebAppServiceConstants.ROOT_URL,
-                DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW));
-        addEnricher(new SensorTransformingEnricher<Integer,Integer>(web, 
-                DynamicWebAppCluster.GROUP_SIZE, APPSERVERS_COUNT, Functions.<Integer>identity()));
+                DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW,
+                HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW));
+        addEnricher(SensorTransformingEnricher.newInstanceTransforming(web, 
+                DynamicWebAppCluster.GROUP_SIZE, Functions.<Integer>identity(), APPSERVERS_COUNT));
     }
 
     public static void main(String[] argv) {

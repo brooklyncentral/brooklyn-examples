@@ -10,12 +10,14 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import brooklyn.catalog.Catalog;
 import brooklyn.catalog.CatalogConfig;
 import brooklyn.config.ConfigKey;
 import brooklyn.enricher.HttpLatencyDetector;
 import brooklyn.enricher.basic.SensorPropagatingEnricher;
 import brooklyn.enricher.basic.SensorTransformingEnricher;
 import brooklyn.entity.basic.AbstractApplication;
+import brooklyn.entity.basic.ConfigKeys;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.basic.StartableApplication;
 import brooklyn.entity.database.mysql.MySqlNode;
@@ -28,8 +30,7 @@ import brooklyn.entity.webapp.JavaWebAppService;
 import brooklyn.entity.webapp.WebAppService;
 import brooklyn.entity.webapp.WebAppServiceConstants;
 import brooklyn.event.AttributeSensor;
-import brooklyn.event.basic.BasicAttributeSensor;
-import brooklyn.event.basic.BasicConfigKey;
+import brooklyn.event.basic.Sensors;
 import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.basic.PortRanges;
 import brooklyn.policy.autoscaling.AutoScalerPolicy;
@@ -48,6 +49,12 @@ import com.google.common.collect.Lists;
  * Note the policy min size must have the same value,
  * otherwise it fights with cluster set up trying to reduce the cluster size!
  **/
+@Catalog(name="Elastic Java Web + DB",
+    description="Deploys a WAR to a load-balanced elastic Java AppServer cluster, " +
+    		"with an auto-scaling policy, " +
+    		"wired to a database initialized with the provided SQL; " +
+    		"defaults to a 'Hello World' chatroom app.",
+    iconUrl="classpath://brooklyn/demo/glossy-3d-blue-web-icon.png")
 public class WebClusterDatabaseExampleApp extends AbstractApplication implements StartableApplication {
     
     public static final Logger LOG = LoggerFactory.getLogger(WebClusterDatabaseExampleApp.class);
@@ -57,7 +64,7 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     public static final String DEFAULT_WAR_PATH = "classpath://hello-world-sql-webapp.war";
     
     @CatalogConfig(label="WAR (URL)", priority=2)
-    public static final ConfigKey<String> WAR_PATH = new BasicConfigKey<String>(String.class,
+    public static final ConfigKey<String> WAR_PATH = ConfigKeys.newConfigKey(
         "app.war", "URL to the application archive which should be deployed", 
         DEFAULT_WAR_PATH);
 
@@ -65,13 +72,13 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     // and also confirm that this works for nginx (might be a bit fiddly);
     // booleans in the gui are working (With checkbox)
 //    @CatalogConfig(label="HTTPS")
-    public static final ConfigKey<Boolean> USE_HTTPS = new BasicConfigKey<Boolean>(Boolean.class,
+    public static final ConfigKey<Boolean> USE_HTTPS = ConfigKeys.newConfigKey(
             "app.https", "Whether the application should use HTTPS only or just HTTP only (default)", false);
     
     public static final String DEFAULT_DB_SETUP_SQL_URL = "classpath://visitors-creation-script.sql";
     
     @CatalogConfig(label="DB Setup SQL (URL)", priority=1)
-    public static final ConfigKey<String> DB_SETUP_SQL_URL = new BasicConfigKey<String>(String.class,
+    public static final ConfigKey<String> DB_SETUP_SQL_URL = ConfigKeys.newConfigKey(
         "app.db_sql", "URL to the SQL script to set up the database", 
         DEFAULT_DB_SETUP_SQL_URL);
     
@@ -79,7 +86,7 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     public static final String DB_USERNAME = "brooklyn";
     public static final String DB_PASSWORD = "br00k11n";
     
-    BasicAttributeSensor<Integer> APPSERVERS_COUNT = new BasicAttributeSensor<Integer>(Integer.class, 
+    AttributeSensor<Integer> APPSERVERS_COUNT = Sensors.newIntegerSensor( 
             "appservers.count", "Number of app servers deployed");
     public static final AttributeSensor<Double> REQUESTS_PER_SECOND_IN_WINDOW = 
             WebAppServiceConstants.REQUESTS_PER_SECOND_IN_WINDOW;
@@ -89,12 +96,14 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
     public void init() {
         MySqlNode mysql = addChild(
                 EntitySpecs.spec(MySqlNode.class)
-                        .configure(MySqlNode.CREATION_SCRIPT_URL, getConfig(DB_SETUP_SQL_URL)));
+                        .configure(MySqlNode.CREATION_SCRIPT_URL, Entities.getRequiredUrlConfig(this, DB_SETUP_SQL_URL)));
 
         ControlledDynamicWebAppCluster web = addChild(
                 EntitySpecs.spec(ControlledDynamicWebAppCluster.class)
                         .configure(WebAppService.HTTP_PORT, PortRanges.fromString("8080+"))
-                        .configure(JavaWebAppService.ROOT_WAR, getConfig(WAR_PATH))
+                        // to specify a diferrent appserver:
+//                        .configure(ControlledDynamicWebAppCluster.MEMBER_SPEC, EntitySpecs.spec(TomcatServer.class))
+                        .configure(JavaWebAppService.ROOT_WAR, Entities.getRequiredUrlConfig(this, WAR_PATH))
                         .configure(JavaEntityMethods.javaSysProp("brooklyn.example.db.url"), 
                                 formatString("jdbc:%s%s?user=%s\\&password=%s", 
                                         attributeWhenReady(mysql, MySqlNode.MYSQL_URL), DB_TABLE, DB_USERNAME, DB_PASSWORD))
@@ -116,8 +125,8 @@ public class WebClusterDatabaseExampleApp extends AbstractApplication implements
                 WebAppServiceConstants.ROOT_URL,
                 DynamicWebAppCluster.REQUESTS_PER_SECOND_IN_WINDOW,
                 HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW));
-        addEnricher(new SensorTransformingEnricher<Integer,Integer>(web, 
-                DynamicWebAppCluster.GROUP_SIZE, APPSERVERS_COUNT, Functions.<Integer>identity()));
+        addEnricher(SensorTransformingEnricher.newInstanceTransforming(web, 
+                DynamicWebAppCluster.GROUP_SIZE, Functions.<Integer>identity(), APPSERVERS_COUNT));
     }
     
     public static void main(String[] argv) {
