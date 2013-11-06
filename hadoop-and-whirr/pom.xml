@@ -8,7 +8,7 @@
     <parent>
         <groupId>io.brooklyn.example</groupId>
         <artifactId>brooklyn-examples-parent</artifactId>
-        <version>0.6.0-rc.1</version>   <!-- BROOKLYN_VERSION -->
+        <version>0.6.0-rc.2</version>   <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -18,6 +18,11 @@
             <artifactId>brooklyn-all</artifactId>
             <version>${project.version}</version>
             <classifier>with-dependencies</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.whirr</groupId>
+            <artifactId>whirr-elasticsearch</artifactId>
+            <version>${whirr.version}</version>
         </dependency>
     </dependencies>
 
