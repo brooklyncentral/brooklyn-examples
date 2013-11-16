@@ -12,7 +12,7 @@
     <parent>
         <groupId>io.brooklyn.example</groupId>
         <artifactId>brooklyn-examples-parent</artifactId>
-        <version>0.6.0-rc.2</version>   <!-- BROOKLYN_VERSION -->
+        <version>0.6.0-rc.4</version>   <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -26,6 +26,13 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>io.brooklyn</groupId>
+            <artifactId>brooklyn-logback-xml</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
