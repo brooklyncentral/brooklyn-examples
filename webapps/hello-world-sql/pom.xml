@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.brooklyn.example</groupId>
         <artifactId>brooklyn-examples-webapps-parent</artifactId>
-        <version>0.6.0</version> <!-- BROOKLYN_VERSION -->
+        <version>0.7.0-M1</version> <!-- BROOKLYN_VERSION -->
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -16,6 +16,11 @@
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>5.1.18</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongo-java-driver</artifactId>
+            <version>2.11.4</version>
         </dependency>
     </dependencies>
 

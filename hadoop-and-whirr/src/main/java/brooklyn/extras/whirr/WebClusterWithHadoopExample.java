@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,6 @@ import brooklyn.entity.basic.DynamicGroup;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.basic.StartableApplication;
 import brooklyn.entity.proxying.EntitySpec;
-import brooklyn.entity.proxying.EntitySpecs;
 import brooklyn.entity.trait.Startable;
 import brooklyn.entity.webapp.ControlledDynamicWebAppCluster;
 import brooklyn.entity.webapp.DynamicWebAppCluster;
@@ -27,7 +27,6 @@ import brooklyn.entity.webapp.jboss.JBoss7Server;
 import brooklyn.event.SensorEvent;
 import brooklyn.event.SensorEventListener;
 import brooklyn.event.feed.http.HttpPollValue;
-import brooklyn.event.feed.http.HttpPolls;
 import brooklyn.extras.whirr.hadoop.WhirrHadoopCluster;
 import brooklyn.launcher.BrooklynLauncher;
 import brooklyn.location.Location;
@@ -35,11 +34,13 @@ import brooklyn.policy.autoscaling.AutoScalerPolicy;
 import brooklyn.policy.basic.AbstractPolicy;
 import brooklyn.util.CommandLineUtil;
 import brooklyn.util.exceptions.Exceptions;
+import brooklyn.util.http.HttpTool;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -89,7 +90,7 @@ public class WebClusterWithHadoopExample extends AbstractApplication implements 
         webCluster = addChild(EntitySpec.create(ControlledDynamicWebAppCluster.class)
                 .configure("war", WAR_PATH)
                 .policy(AutoScalerPolicy.builder()
-                        .metric(DynamicWebAppCluster.AVERAGE_REQUESTS_PER_SECOND)
+                        .metric(DynamicWebAppCluster.REQUESTS_PER_SECOND_LAST_PER_NODE)
                         .sizeRange(1, 5)
                         .metricRange(10, 100)
                         .build()));
@@ -151,7 +152,7 @@ public class WebClusterWithHadoopExample extends AbstractApplication implements 
                         "key=brooklyn.example.hadoop.site.xml.contents"+"&"+
                         "value="+URLEncoder.encode(hadoopSiteXmlContents));
                 
-                HttpPollValue result = HttpPolls.executeSimpleGet(updateConfigUri);
+                HttpPollValue result = HttpTool.httpGet(new DefaultHttpClient(), updateConfigUri, ImmutableMap.<String,String>of());
                 if (log.isDebugEnabled()) log.debug("http config update for {} got: {}, {}", new Object[] {e, result.getResponseCode(), new String(result.getContent())});
             } catch (Exception err) {
                 log.warn("unable to configure "+e+" for hadoop", err);
@@ -178,9 +179,8 @@ public class WebClusterWithHadoopExample extends AbstractApplication implements 
         String location = CommandLineUtil.getCommandLineOption(args, "--location", Joiner.on(",").join(DEFAULT_LOCATIONS));
 
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
-                .application(EntitySpecs.appSpec(StartableApplication.class)
-                        .displayName("Brooklyn Global Web Fabric with Hadoop Example")
-                        .impl(WebClusterWithHadoopExample.class))
+                .application(EntitySpec.create(StartableApplication.class, WebClusterWithHadoopExample.class)
+                        .displayName("Brooklyn Global Web Fabric with Hadoop Example"))
                 .webconsolePort(port)
                 .location(location)
                 .start();
